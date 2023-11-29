@@ -64,7 +64,7 @@ export default function ArticleItem(props: ArticleItemProps) {
   
     const data = await response.json();
 
-    const matchingDiscussion = data.data.repository.discussions.nodes.find(discussion => discussion.title === articleTitle);
+    const matchingDiscussion = data.data.repository.discussions.nodes.find((discussion: any) => discussion.title === articleTitle);
   
     if (matchingDiscussion) {
       const commentsCount = matchingDiscussion.comments.totalCount;
