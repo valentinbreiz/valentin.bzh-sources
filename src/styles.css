@@ -1,0 +1,47 @@
+.console-container {
+  font-size: 4em;
+  text-align: center;
+  color: white;
+  position: relative;
+  width: 100%;
+  height: auto;
+}
+
+.console-underscore {
+  display: inline-block;
+  position: relative;
+  top: -0.14em;
+  left: 10px;
+}
+
+.hidden {
+  opacity: 0;
+}
+
+.Container img {
+  display: block; /* Les images sont en ligne par défaut, donc changez-les en block pour permettre le centrage */
+  margin: 0 auto; /* Centrer l'image horizontalement */
+  background: transparent !important; /* Définir le fond des images en transparent */
+  max-width: 80% !important;
+  width: auto;
+  transition: transform 0.3s;
+}
+
+.Container img:hover {
+  transform: scale(1.5);
+}
+
+.Container .centered-video {
+  display: block; /* Rendre la vidéo en block pour permettre le centrage */
+  margin: 0 auto; /* Centrer la vidéo horizontalement */
+  width: 80%; /* Assurer que la vidéo ne dépasse pas la largeur du conteneur */
+  height: auto; /* Garder le ratio hauteur/largeur de la vidéo */
+}
+
+.Container ol {
+  list-style-type: decimal !important; /* pour des listes numérotées */
+}
+
+.Container ul {
+  list-style-type: disc !important; /* pour des listes à puces */
+}

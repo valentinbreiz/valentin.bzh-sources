@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  my-blog:
+    container_name: my-blog
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+    networks:
+      - my-blog
+networks:
+  my-blog:
+    external: true
