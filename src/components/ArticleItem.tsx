@@ -28,18 +28,69 @@ export default function ArticleItem(props: ArticleItemProps) {
   const { getViewCount } = useFirebase();
   const { article, getLink, getLabelLink } = props;
   const [views, setViews] = useState(0);
+  const [comments, setComments] = useState(0);
   const { t } = useTranslation();
 
   const createdAt = useMemo(() => format(new Date(article.createdAt), t('dateFormat')), [article]);
 
+  const fetchCommentsCount = async (articleTitle: string) => {
+    const repoOwner = 'valentinbreiz';
+    const repoName = 'valentin.bzh';
+    const token = import.meta.env.VITE_GITHUB_ACCESS_TOKEN_PART1 + import.meta.env.VITE_GITHUB_ACCESS_TOKEN_PART2;
+
+    const query = `
+      query {
+        repository(owner: "${repoOwner}", name: "${repoName}") {
+          discussions(first: 100) {
+            nodes {
+              title
+              comments {
+                totalCount
+              }
+            }
+          }
+        }
+      }
+    `;
+  
+    const response = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query }),
+    });
+  
+    const data = await response.json();
+
+    const matchingDiscussion = data.data.repository.discussions.nodes.find(discussion => discussion.title === articleTitle);
+  
+    if (matchingDiscussion) {
+      const commentsCount = matchingDiscussion.comments.totalCount;
+      return commentsCount;
+    } else {
+      console.log('No discussion found with this name.');
+      return 0;
+    }
+  };
+
   useEffect(() => {
     const fetchViews = async () => {
-      console.log(article)
       const viewCount = await getViewCount(article.number);
       setViews(viewCount);
     };
 
+    const fetchComments = async () => {
+      if (article && article.title) {
+        fetchCommentsCount(article.title).then(commentsCount => {
+          setComments(commentsCount);
+        });
+      }
+    };
+
     fetchViews();
+    fetchComments();
   }, [article.id, getViewCount]);
 
   return (
@@ -55,7 +106,7 @@ export default function ArticleItem(props: ArticleItemProps) {
           <IconViews tw="inline mr-2" />
           {views} 
           <IconComments tw="inline ml-4 mr-2" />
-          {article.comments}
+          {comments}
         </Left>
         <Right tw="flex text-sm text-slate-400">
           {article.labels.map((label) => (

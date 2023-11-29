@@ -1,12 +1,10 @@
 import { format } from 'date-fns';
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import tw from 'twin.macro';
 import IconComments from '~icons/ri/chat-2-line';
 import IconViews from '~icons/ri/eye-line';
-import CommentItem from '../components/CommentItem';
-import CommentSkeleton from '../components/CommentSkeleton';
 import LabelItem from '../components/LabelItem';
 import MarkdownHtml from '../components/MarkdownHtml';
 import Pagination from '../components/Pagination';
@@ -17,8 +15,8 @@ import ArticleModel from '../models/ArticleModel';
 import CommentModel from '../models/CommentModel';
 import github from '../services/github';
 import { createQueryURL } from '../utils';
-import IconGithub from '~icons/ri/github-line';
 import useFirebase from '../hooks/use-firebase';
+import { DarkModeValueContext } from '../hooks/use-dark-mode';
 
 const Wrapper = tw.article`mx-auto w-full max-w-screen-lg px-8 py-12`;
 
@@ -27,18 +25,6 @@ const Title = tw.h2`text-2xl text-slate-700`;
 const Into = tw.div`mt-4 mb-8 space-x-4 flex flex-wrap content-center text-sm text-slate-400`;
 
 const ParagraphSkeleton = tw.ul`mt-8 space-y-4`;
-
-const CommentTitle = tw.h2`text-2xl text-slate-700`;
-
-const CommentButton = tw.a`
-  mt-4 block w-full h-10
-  flex items-center justify-center space-x-2 // Flexbox styles added here
-  leading-10 text-slate-400 text-center
-  border border-gray-400 rounded-sm outline-none
-  cursor-pointer 
-`;
-
-const Foot = tw.div`mt-8 flex justify-center`;
 
 function useArticle() {
   const { id } = useParams();
@@ -59,64 +45,22 @@ function useArticle() {
   return [loading, article] as const;
 }
 
-function useCommentsQuery() {
-  const { id } = useParams();
-  const { page } = useQuery();
-
-  return useMemo(
-    () => ({
-      issue: parseInt(id!, 10),
-      page: parseInt(page ?? '1', 10),
-      pageSize: parseInt(import.meta.env.VITE_COMMENT_PAGE_SIZE, 10),
-    }),
-    [id, page],
-  );
-}
-
-function useComments() {
-  const query = useCommentsQuery();
-  const [comments, setComments] = useState<CommentModel[]>([]);
-
-  const [loading, load] = useHandling(
-    useCallback(async () => {
-      const result = await github.listComments(query);
-
-      setComments(result.map(CommentModel.from));
-    }, [query]),
-    true,
-  );
-
-  useEffect(() => {
-    load();
-  }, [query]);
-
-  return [loading, comments, query] as const;
-}
-
 export default memo(function Article() {
   const { increaseViewCount, getViewCount } = useFirebase();
-  const navigate = useNavigate();
   const { t } = useTranslation();
   const [articleLoading, article] = useArticle();
-  const [commentsLoading, comments, query] = useComments();
   const { id } = useParams();
   const [views, setViews] = useState(0);
+  const [comments, setComments] = useState(0);
   const [hasCountedView, setHasCountedView] = useState(false);
+  const darkMode = useContext(DarkModeValueContext);
 
   const createdAt = useMemo(() => {
     return article ? format(new Date(article.createdAt), t('dateFormat')) : '';
   }, [article]);
 
-  const newCommentUrl = useMemo(() => {
-    return article ? `${article.htmlUrl}#new_comment_field` : '';
-  }, [article]);
-
   const getLabelLink = useCallback((label: string) => {
     return `../${createQueryURL({ label, page: 1 })}`;
-  }, []);
-
-  const onPageChange = useCallback((page: number) => {
-    navigate(createQueryURL({ page }));
   }, []);
 
   const loadArticleAndViewCount = useCallback(async () => {
@@ -133,6 +77,61 @@ export default memo(function Article() {
       loadArticleAndViewCount();
     }
   }, [id]);
+
+  const utterancesContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const originalTitle = document.title;
+    if (article && article.title) {
+      document.title = article.title;
+
+      const container = utterancesContainerRef.current;
+      if (!container) return;
+  
+      // Supprimer le script existant
+      while (container.firstChild) {
+        container.firstChild.remove();
+      }
+  
+      // Créer un nouveau script
+      const script = document.createElement('script');
+      script.src = 'https://giscus.app/client.js';
+      script.async = true;
+      script.setAttribute('data-repo', 'valentinbreiz/valentin.bzh');
+      script.setAttribute('data-repo-id', 'R_kgDOKzdwWQ');
+      script.setAttribute('data-category', 'Blog Posts');
+      script.setAttribute('data-category-id', 'DIC_kwDOKzdwWc4CbW-b');
+      script.setAttribute('data-mapping', 'title');
+      script.setAttribute('data-strict', '1');
+      script.setAttribute('data-reactions-enabled', '1');
+      script.setAttribute('data-emit-metadata', '1');
+      script.setAttribute('data-input-position', 'bottom');
+      script.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+      script.setAttribute('data-loading', 'lazy');
+      script.setAttribute('crossorigin', 'anonymous');
+  
+      // Ajouter le nouveau script au conteneur
+      container.appendChild(script);
+    }
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [article, darkMode]);
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== 'https://giscus.app') return;
+      if (!(typeof event.data === 'object' && event.data.giscus)) return;
+    
+      const giscusData = event.data.giscus;
+      
+      if (giscusData && 'discussion' in giscusData) {
+        setComments(giscusData.discussion.totalCommentCount);
+      }
+    }
+    
+    window.addEventListener('message', handleMessage);
+  })
 
   return (
     <Wrapper>
@@ -172,47 +171,15 @@ export default memo(function Article() {
               </span>
               <span tw="flex items-center">
                 <IconComments />
-                <span tw="ml-1">{article.comments}</span>
+                <span tw="ml-1">{comments}</span>
               </span>
             </Into>
             <MarkdownHtml markdown={article.body} playground />
           </>
         )}
       </article>
-
       <section tw="mt-8">
-        <CommentTitle>{t('comment.title')}</CommentTitle>
-
-        {commentsLoading && (
-          <div>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <CommentSkeleton key={i} />
-            ))}
-          </div>
-        )}
-
-        {!!comments.length && (
-          <div>
-            {comments.map((comment) => (
-              <CommentItem key={comment.id} comment={comment} />
-            ))}
-          </div>
-        )}
-
-        <br></br>
-        <CommentButton href={newCommentUrl}>
-          <IconGithub tw="mr-2" /> {/* Icône GitHub ajoutée au bouton */}
-          {t('comment.btn')}
-        </CommentButton>
-
-        <Foot>
-          <Pagination
-            page={query.page}
-            pageSize={query.pageSize}
-            total={article ? article.comments : 0}
-            onChange={onPageChange}
-          />
-        </Foot>
+        <div ref={utterancesContainerRef}></div>
       </section>
     </Wrapper>
   );
