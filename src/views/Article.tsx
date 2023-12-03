@@ -107,7 +107,6 @@ export default memo(function Article() {
       script.setAttribute('data-emit-metadata', '1');
       script.setAttribute('data-input-position', 'bottom');
       script.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-      script.setAttribute('data-loading', 'lazy');
       script.setAttribute('crossorigin', 'anonymous');
   
       // Ajouter le nouveau script au conteneur
